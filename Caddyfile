@@ -1,0 +1,61 @@
+# ============ PUBLIC UPLOAD (NO AUTH) ============
+{$FRONTEND_DOMAIN:upload.localhost} {
+    reverse_proxy frontend:3000
+    request_body {
+        max_size 100MB
+    }
+}
+
+# ============ API WITH SELECTIVE AUTH ============
+{$API_DOMAIN:api.localhost} {
+    # Public endpoints
+    route /api/upload {
+        reverse_proxy backend:3000
+        request_body { max_size 100MB }
+    }
+
+    route /api/files/* {
+        reverse_proxy backend:3000
+    }
+
+    # Manager endpoints
+    route /api/manager/* {
+        forward_auth backend:3000 {
+            uri /auth/verify-manager
+            copy_headers X-User-ID X-User-Email X-User-Roles
+        }
+        reverse_proxy backend:3000
+    }
+
+    # Admin endpoints
+    route /api/admin/* {
+        forward_auth backend:3000 {
+            uri /auth/verify-admin
+            copy_headers X-User-ID X-User-Email X-User-Roles
+        }
+        reverse_proxy backend:3000
+    }
+
+    # Auth endpoints
+    route /auth/* {
+        reverse_proxy backend:3000
+    }
+}
+
+# ============ MANAGER DASHBOARD ============
+{$MANAGER_DOMAIN:manager.localhost} {
+    forward_auth backend:3000 {
+        uri /auth/verify-manager
+        copy_headers X-User-ID X-User-Email X-User-Roles
+    }
+    reverse_proxy frontend:3000
+}
+
+# ============ ADMIN PANEL ============
+{$ADMIN_DOMAIN:admin.localhost} {
+    forward_auth backend:3000 {
+        uri /auth/verify-admin
+        copy_headers X-User-ID X-User-Email X-User-Roles
+    }
+    reverse_proxy frontend:3000
+}
