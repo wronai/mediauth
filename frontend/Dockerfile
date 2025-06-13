@@ -6,30 +6,33 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install all dependencies including devDependencies for building
-RUN npm ci
+RUN npm install
 
 # Copy the rest of the files
 COPY src/ ./src/
 COPY public/ ./public/
+COPY .env* ./
 
 # Build the app
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:18-alpine
 
-# Copy built assets from build stage
-COPY --from=build /app/build /usr/share/nginx/html
+WORKDIR /app
 
-# Nginx configuration
-RUN echo 'server { \
-    listen 3000; \
-    location / { \
-        root /usr/share/nginx/html; \
-        index index.html; \
-        try_files $uri $uri/ /index.html; \
-    } \
-}' > /etc/nginx/conf.d/default.conf
+# Copy package files and install only production dependencies
+COPY --from=build /app/package*.json ./
+RUN npm install --only=production
 
+# Copy built app
+COPY --from=build /app/build ./build
+
+# Install serve to run the app
+RUN npm install -g serve
+
+# Expose port (will be overridden by docker-compose)
 EXPOSE 3000
-CMD ["nginx", "-g", "daemon off;"]
+
+# Start the app
+CMD ["serve", "-s", "build", "-l", "3000"]
