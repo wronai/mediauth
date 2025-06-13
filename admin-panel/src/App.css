@@ -1,0 +1,49 @@
+/* Main app container */
+.App {
+  text-align: center;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Header styles */
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  padding: 20px;
+}
+
+/* Basic link styling */
+a {
+  color: #61dafb;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Loading state */
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100%;
+  font-size: 1.2em;
+}
+
+/* Error message */
+.error {
+  color: #ff4444;
+  margin: 10px 0;
+  padding: 10px;
+  border: 1px solid #ff4444;
+  border-radius: 4px;
+  background-color: #ffeeee;
+}

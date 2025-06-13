@@ -1,61 +1,71 @@
-# ============ PUBLIC UPLOAD (NO AUTH) ============
-{$FRONTEND_DOMAIN:upload.localhost} {
-    reverse_proxy frontend:3000
-    request_body {
-        max_size 100MB
-    }
+# Development configuration - HTTP only with automatic HTTPS disabled
+{
+    # Disable HTTPS for local development
+    auto_https disable_redirects
+    # Use port 80 for development
+    http_port 80
 }
 
-# ============ API WITH SELECTIVE AUTH ============
-{$API_DOMAIN:api.localhost} {
-    # Public endpoints
-    route /api/upload {
-        reverse_proxy backend:3000
-        request_body { max_size 100MB }
+# Main entry point - reverse proxy
+:80 {
+    # Enable CORS for all responses
+    header {
+        Access-Control-Allow-Origin *
+        Access-Control-Allow-Methods *
+        Access-Control-Allow-Headers *
     }
 
-    route /api/files/* {
-        reverse_proxy backend:3000
-    }
-
-    # Manager endpoints
-    route /api/manager/* {
-        forward_auth backend:3000 {
-            uri /auth/verify-manager
-            copy_headers X-User-ID X-User-Email X-User-Roles
+    # ============ PUBLIC UPLOAD ============
+    handle_path /upload/* {
+        # Forward to the public-upload service directly using service name
+        reverse_proxy http://public-upload:3003 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
         }
-        reverse_proxy backend:3000
+    }
+    
+    # Redirect /upload to /upload/ to avoid relative path issues
+    handle_path /upload {
+        redir /upload/ permanent
     }
 
-    # Admin endpoints
-    route /api/admin/* {
-        forward_auth backend:3000 {
-            uri /auth/verify-admin
-            copy_headers X-User-ID X-User-Email X-User-Roles
+    # ============ LOGIN ============
+    handle_path /login* {
+        reverse_proxy http://login-panel:3004 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
         }
-        reverse_proxy backend:3000
     }
 
-    # Auth endpoints
-    route /auth/* {
-        reverse_proxy backend:3000
+    # ============ MANAGER DASHBOARD ============
+    handle_path /manager* {
+        reverse_proxy http://manager-panel:3002 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
     }
-}
 
-# ============ MANAGER DASHBOARD ============
-{$MANAGER_DOMAIN:manager.localhost} {
-    forward_auth backend:3000 {
-        uri /auth/verify-manager
-        copy_headers X-User-ID X-User-Email X-User-Roles
+    # ============ ADMIN PANEL ============
+    handle_path /admin-panel* {
+        reverse_proxy http://admin-panel:3005 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
     }
-    reverse_proxy frontend:3000
-}
 
-# ============ ADMIN PANEL ============
-{$ADMIN_DOMAIN:admin.localhost} {
-    forward_auth backend:3000 {
-        uri /auth/verify-admin
-        copy_headers X-User-ID X-User-Email X-User-Roles
+    # ============ API ============
+    handle_path /api/* {
+        reverse_proxy http://backend:3001 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
     }
-    reverse_proxy frontend:3000
+
+    # Root path - serve the main frontend
+    handle {
+        reverse_proxy http://frontend:3000 {
+            header_up Host {host}
+            header_up X-Real-IP {remote_host}
+        }
+    }
 }

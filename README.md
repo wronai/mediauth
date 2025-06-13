@@ -1,53 +1,131 @@
-# Ultimate Upload System
+# Media Upload System
 
-Complete file upload system with infrastructure separation architecture.
+A complete file upload system with separate frontend applications for different user roles, served on different subdomains.
 
 ## 🚀 Features
 
-- **Public File Upload** - No authentication required
-- **Manager Approval Workflow** - Files require approval before download
-- **Admin Configuration** - Email settings configurable by admin
-- **Email Notifications** - Automatic notifications on approval/rejection
-- **External Authentication** - Auth handled at infrastructure level
-- **Domain Flexibility** - Easy configuration via environment variables
+- **Multiple Frontend Apps** - Separate React applications for each user role
+- **Role-Based Access Control** - Different interfaces for public users, managers, and admins
+- **Public File Upload** - No authentication required for file uploads
+- **Manager Approval Workflow** - Files require approval before being made available
+- **Admin Dashboard** - User management and system configuration
+- **JWT Authentication** - Secure token-based authentication
 
 ## 🏗️ Architecture
 
-- **Caddy Proxy** - Handles routing, HTTPS, and authentication
-- **All-in-One Backend** - Node.js service with all business logic
-- **Unified Frontend** - React SPA with routing for all interfaces
+- **Frontend Applications**:
+  - `login-panel` - Authentication service (http://login.localhost)
+  - `public-upload` - Public file upload interface (http://upload.localhost)
+  - `manager-panel` - Manager dashboard for approving/rejecting uploads (http://manager.localhost)
+  - `admin-panel` - Admin interface for user management (http://admin.localhost)
+- **Backend API** - Node.js/Express service (http://api.localhost)
+- **Caddy Proxy** - Handles routing and reverse proxying
 - **PostgreSQL** - Database storage
-- **Redis** - Session storage
+- **Redis** - Session storage and caching
 
 ## 🚀 Quick Start
 
+### Prerequisites
+
+- Node.js (v16+)
+- npm or yarn
+- Docker and Docker Compose (for database and Redis)
+- Caddy server (for local development)
+
 ### Local Development
 
-```bash
-# 1. Start the system
-./scripts/start.sh
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd mediauth
+   ```
 
-# 2. Access the applications
-# Public Upload:     http://upload.localhost
-# Manager Dashboard: http://manager.localhost (manager@company.com / manager123)
-# Admin Panel:       http://admin.localhost (admin@company.com / admin123)
-```
+2. **Install dependencies**
+   ```bash
+   # Install backend dependencies
+   cd backend
+   npm install
+   
+   # Install frontend dependencies
+   cd ../admin-panel
+   npm install
+   
+   cd ../manager-panel
+   npm install
+   
+   cd ../public-upload
+   npm install
+   
+   cd ../login-panel
+   npm install
+   cd ..
+   ```
 
-### VPS Deployment
+3. **Set up environment variables**
+   - Copy `.env.example` to `.env` and update the values as needed
+   - Each frontend app has its own `.env` file with the correct API URL and port
 
-```bash
-# 1. Deploy to production
-./scripts/deploy-vps.sh
+4. **Start the development environment**
+   ```bash
+   # Make the start script executable if needed
+   chmod +x start-dev.sh
+   
+   # Start all services
+   ./start-dev.sh
+   ```
 
-# 2. Follow prompts to configure your domain
-```
+5. **Access the applications**
+   - Public Upload: http://upload.localhost
+   - Login: http://login.localhost
+   - Manager Dashboard: http://manager.localhost
+   - Admin Panel: http://admin.localhost
+   - API: http://api.localhost
+
+### Default Login Credentials
+
+- **Admin Panel**:
+  - Email: admin@example.com
+  - Password: admin123
+
+- **Manager Dashboard**:
+  - Email: manager@example.com
+  - Password: manager123
 
 ## 🔧 Configuration
 
 ### Environment Variables
 
+Main `.env` file in the project root:
+
 ```bash
-# Local Development
+# Domain Configuration
+UPLOAD_DOMAIN=upload.localhost
+LOGIN_DOMAIN=login.localhost
+MANAGER_DOMAIN=manager.localhost
+ADMIN_DOMAIN=admin.localhost
+API_DOMAIN=api.localhost
+
+# Backend API
+API_PORT=3005
+NODE_ENV=development
+JWT_SECRET=your-jwt-secret
+
+# Database Configuration
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=devPassword
+POSTGRES_DB=uploaddb
+POSTGRES_HOST=127.0.0.1
+POSTGRES_PORT=5432
+
+# Redis Configuration
+REDIS_HOST=127.0.0.1
+REDIS_PORT=6379
+
+# Default Users
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=admin123
+MANAGER_EMAIL=manager@example.com
+MANAGER_PASSWORD=manager123
 FRONTEND_DOMAIN=upload.localhost
 API_DOMAIN=api.localhost
 MANAGER_DOMAIN=manager.localhost

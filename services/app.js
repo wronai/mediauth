@@ -29,9 +29,13 @@ const redis = Redis.createClient({
 });
 redis.connect().catch(console.error);
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+fs.mkdir(uploadsDir, { recursive: true }).catch(console.error);
+
 // File upload configuration
 const upload = multer({
-  dest: '/app/uploads/',
+  dest: uploadsDir,
   limits: { fileSize: 100 * 1024 * 1024 }, // 100MB
   fileFilter: (req, file, cb) => cb(null, true)
 });
@@ -449,7 +453,7 @@ app.use((error, req, res, next) => {
   res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 app.listen(PORT, () => {
   console.log(`Ultimate Upload System Backend running on port ${PORT}`);
 });

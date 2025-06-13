@@ -1,0 +1,65 @@
+---
+- name: Check Docker containers health
+  hosts: localhost
+  connection: local
+  become: no
+  
+  tasks:
+    - name: Get list of all containers
+      shell: docker ps -a --format '{{ '{{' }}.Names}}|{{ '{{' }}.Status}}'
+      register: docker_ps_output
+      changed_when: false
+      
+    - name: Get detailed container info
+      shell: docker inspect --format='{{ '{{' }}.Name}}|{{ '{{' }}.State.Status}}|{{ '{{' }}.State.Health.Status|default("healthy") }}' $(docker ps -aq)
+      register: docker_inspect_output
+      changed_when: false
+      ignore_errors: yes
+      
+    - name: Display container status
+      debug:
+        msg: "Container {{ item.split('|')[0] | replace('/', '') }} - Status: {{ item.split('|')[1] }} - Health: {{ item.split('|')[2] }}"
+      loop: "{{ docker_inspect_output.stdout_lines | default(docker_ps_output.stdout_lines) }}"
+      
+    - name: Check if any container is not running
+      fail:
+        msg: "Container {{ item.split('|')[0] | replace('/', '') }} is not running! Status: {{ item.split('|')[1] }}"
+      when: '"running" not in item.split("|")[1] | lower and "up" not in item.split("|")[1] | lower and "healthy" not in item.split("|")[1] | lower and "starting" not in item.split("|")[1] | lower and "paused" not in item.split("|")[1] | lower and "restarting" not in item.split("|")[1] | lower'
+      loop: "{{ docker_inspect_output.stdout_lines | default(docker_ps_output.stdout_lines) }}"
+      ignore_errors: yes
+      register: running_check
+      
+    - name: Check for unhealthy containers
+      fail:
+        msg: "Container {{ item.split('|')[0] | replace('/', '') }} is not healthy! Status: {{ item.split('|')[2] }}"
+      when: '"unhealthy" in item.split("|")[2] | lower | default("") or ("exited" in item.split("|")[1] | lower and item.split("|")[1] | int == 1)'
+      loop: "{{ docker_inspect_output.stdout_lines | default(docker_ps_output.stdout_lines) }}"
+      ignore_errors: yes
+      register: health_check
+      
+    - name: Show containers with issues
+      debug:
+        msg: |
+          The following containers have issues:
+          {% set issues = [] %}
+          {% if running_check is defined and running_check.failed %}
+            {% for result in running_check.results %}
+              {% if result.failed %}
+                {% set _ = issues.append(result.item.split('|')[0] | replace('/', '')) %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {% if health_check is defined and health_check.failed %}
+            {% for result in health_check.results %}
+              {% if result.failed and result.item.split('|')[0] | replace('/', '') not in issues %}
+                {% set _ = issues.append(result.item.split('|')[0] | replace('/', '')) %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+          {{ issues | join(', ') if issues | length > 0 else 'None' }}
+      when: (running_check is defined and running_check.failed) or (health_check is defined and health_check.failed)
+      
+    - name: All containers are healthy
+      debug:
+        msg: "All containers are running and healthy!"
+      when: (running_check is defined and not running_check.failed) and (health_check is defined and not health_check.failed)
