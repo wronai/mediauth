@@ -3,14 +3,8 @@ services:
   # ============ REVERSE PROXY + AUTH ============
   caddy:
     image: caddy:2-alpine
-    environment:
-      - FRONTEND_DOMAIN=${FRONTEND_DOMAIN:-upload.localhost}
-      - API_DOMAIN=${API_DOMAIN:-api.localhost}
-      - MANAGER_DOMAIN=${MANAGER_DOMAIN:-manager.localhost}
-      - ADMIN_DOMAIN=${ADMIN_DOMAIN:-admin.localhost}
     ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
+      - "80:80"  # Map host port 80 to container port 80
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - caddy_data:/data
@@ -24,27 +18,83 @@ services:
     environment:
       - NODE_ENV=${NODE_ENV:-development}
       - JWT_SECRET=${JWT_SECRET:-superSecretJwtKey}
+      - PORT=3001
       - DATABASE_URL=postgres://postgres:${POSTGRES_PASSWORD:-secret}@postgres:5432/uploaddb
       - REDIS_URL=redis://redis:6379
+    ports:
+      - "3001:3001"
     volumes:
       - upload_files:/app/uploads
     networks:
       - app_network
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
-  # ============ FRONTEND ============
-  frontend:
-    build: ./frontend
+  # ============ MANAGER PANEL ============
+  manager-panel:
+    build: 
+      context: ./manager-panel
+      dockerfile: Dockerfile
     environment:
-      - REACT_APP_API_URL=https://${API_DOMAIN:-api.localhost}
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+      - PORT=3002
+    ports:
+      - "3002:3002"
     networks:
       - app_network
     restart: unless-stopped
 
-  # ============ STORAGE ============
+  # ============ PUBLIC UPLOAD ============
+  public-upload:
+    build: 
+      context: ./public-upload
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+      - PORT=3003
+    ports:
+      - "3003:3003"
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # ============ LOGIN PANEL ============
+  login-panel:
+    build: 
+      context: ./login-panel
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+      - PORT=3004
+    ports:
+      - "3004:3004"
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  # ============ ADMIN PANEL ============
+  admin-panel:
+    build: 
+      context: ./admin-panel
+      dockerfile: Dockerfile
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=/api
+      - PORT=3005
+    ports:
+      - "3005:3005"
+    networks:
+      - app_network
+    restart: unless-stopped
+
+# ============ STORAGE ============
   postgres:
     image: postgres:15-alpine
     environment:
@@ -56,12 +106,25 @@ services:
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
     networks:
       - app_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
     restart: unless-stopped
 
 networks:
@@ -71,4 +134,5 @@ networks:
 volumes:
   caddy_data:
   postgres_data:
+  redis_data:
   upload_files:
